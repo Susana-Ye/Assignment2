@@ -54,6 +54,27 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			if (words.length > 1) {
+	            for (int i = 0; i < words.length - 1; i++) {
+	                String currentWord = words[i];
+	                String nextWord = words[i + 1];
+
+	                // Skip empty words
+	                if (currentWord.length() == 0 || nextWord.length() == 0) {
+	                    continue;
+	                }
+	                
+	                // Clear and reuse the stripe
+	                STRIPE.clear();
+	                
+	                // Add the following word to the stripe with count 1
+	                STRIPE.increment(nextWord, 1);
+	                
+	                // Emit the word and its stripe
+	                KEY.set(currentWord);
+	                context.write(KEY, STRIPE);
+	            }
+	        }
 		}
 	}
 
@@ -75,6 +96,49 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here
 			 */
+			// Aggregate all stripes for this word
+	        SUM_STRIPES.clear();
+	        for (HashMapStringIntWritable stripe : stripes) {
+	            SUM_STRIPES.plus(stripe);
+	        }
+	        
+	        // Get the string representation and parse it
+	        String stripeStr = SUM_STRIPES.toString();
+	        if (stripeStr.equals("{}")) {
+	            return;
+	        }
+	        
+	        // Remove braces and split into key-value pairs
+	        String cleanStr = stripeStr.substring(1, stripeStr.length() - 1);
+	        String[] pairs = cleanStr.split(", ");
+	        
+	        // Calculate total count
+	        int totalCount = 0;
+	        for (String pair : pairs) {
+	            String[] parts = pair.split("=");
+	            if (parts.length == 2) {
+	                totalCount += Integer.parseInt(parts[1]);
+	            }
+	        }
+	        
+	        // Output marginal count (total for this word)
+	        BIGRAM.set(key.toString(), "");
+	        FREQ.set((float) totalCount);
+	        context.write(BIGRAM, FREQ);
+	        
+	        // Output each bigram with its relative frequency
+	        for (String pair : pairs) {
+	            String[] parts = pair.split("=");
+	            if (parts.length == 2) {
+	                String followingWord = parts[0];
+	                int count = Integer.parseInt(parts[1]);
+	                float frequency = (float) count / totalCount;
+	                
+	                BIGRAM.set(key.toString(), followingWord);
+	                FREQ.set(frequency);
+	                context.write(BIGRAM, FREQ);
+	            }
+	        }
 		}
 	}
 
@@ -94,6 +158,16 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here
 			 */
+			 // Clear the sum stripes for reuse
+	        SUM_STRIPES.clear();
+	        
+	        // Aggregate all stripes for this key
+	        for (HashMapStringIntWritable stripe : stripes) {
+	            SUM_STRIPES.plus(stripe);
+	        }
+	        
+	        // Emit the aggregated stripe
+	        context.write(key, SUM_STRIPES);
 		}
 	}
 

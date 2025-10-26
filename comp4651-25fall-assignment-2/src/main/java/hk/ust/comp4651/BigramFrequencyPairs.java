@@ -53,6 +53,29 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			if (words.length > 1) {
+	            String previousWord = words[0];
+	            
+	            for (int i = 1; i < words.length; i++) {
+	                String currentWord = words[i];
+	                
+	                // Skip empty words
+	                if (currentWord.length() == 0 || previousWord.length() == 0) {
+	                    previousWord = currentWord;
+	                    continue;
+	                }
+	                
+	                // Emit the bigram (A,B) with count 1
+	                BIGRAM.set(previousWord, currentWord);
+	                context.write(BIGRAM, ONE);
+	                
+	                // Emit the marginal count (A,*) for total count of words starting with A
+	                BIGRAM.set(previousWord, "*");
+	                context.write(BIGRAM, ONE);
+	                
+	                previousWord = currentWord;
+	            }
+	        }
 		}
 	}
 
@@ -64,6 +87,8 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 
 		// Reuse objects.
 		private final static FloatWritable VALUE = new FloatWritable();
+		private String currentLeftWord = null;
+	    private float marginalCount = 0;
 
 		@Override
 		public void reduce(PairOfStrings key, Iterable<IntWritable> values,
@@ -71,6 +96,32 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			String leftWord = key.getLeftElement();
+	        String rightWord = key.getRightElement();
+	        
+	        // Calculate the sum for this key
+	        int sum = 0;
+	        for (IntWritable val : values) {
+	            sum += val.get();
+	        }
+	        
+	        if (rightWord.equals("*")) {
+	            // This is the marginal count for the left word
+	            marginalCount = (float) sum;
+	            currentLeftWord = leftWord;
+	            
+	            // Output the marginal count (A with total count)
+	            VALUE.set(marginalCount);
+	            context.write(new PairOfStrings(leftWord, ""), VALUE);
+	        } else {
+	            // This is a regular bigram (A,B)
+	            // Calculate relative frequency: count(A,B) / total count for A
+	            if (marginalCount > 0 && leftWord.equals(currentLeftWord)) {
+	                float relativeFrequency = (float) sum / marginalCount;
+	                VALUE.set(relativeFrequency);
+	                context.write(key, VALUE);
+	            }
+	        }
 		}
 	}
 	
@@ -84,6 +135,12 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			 int sum = 0;
+		     for (IntWritable val : values) {
+		        sum += val.get();
+		     }
+		     SUM.set(sum);
+		     context.write(key, SUM);
 		}
 	}
 
