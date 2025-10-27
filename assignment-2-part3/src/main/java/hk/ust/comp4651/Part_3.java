@@ -154,7 +154,6 @@ public class Part_3 {
              } else {
                  // It's a file so we check if it's empty and delete if so
                  if (status.getLen() == 0) {
-                     System.out.println("Deleting empty file: " + currentPath);
                      fs.delete(currentPath, false); // false means don't recurse for files
                  }
              }
@@ -187,7 +186,6 @@ public class Part_3 {
                 // It's a file - check if it ends with the specified suffix
                 String fileName = currentPath.getName();
                 if (fileName.endsWith(suffix)) {
-                    System.out.println("Deleting file with suffix '" + suffix + "': " + currentPath);
                     fs.delete(currentPath, false); // false means don't recurse for files
                 }
             }
